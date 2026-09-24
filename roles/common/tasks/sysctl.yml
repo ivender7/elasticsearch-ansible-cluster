@@ -1,0 +1,17 @@
+---
+# vm.max_map_count: Elasticsearch (Lucene/mmapfs) requires at least 262144
+- name: Set vm.max_map_count for Elasticsearch
+  ansible.posix.sysctl:
+    name: vm.max_map_count
+    value: "{{ common_vm_max_map_count }}"
+    sysctl_set: true
+    state: present
+    reload: true
+
+- name: Set vm.swappiness low
+  ansible.posix.sysctl:
+    name: vm.swappiness
+    value: "{{ common_vm_swappiness }}"
+    sysctl_set: true
+    state: present
+    reload: true

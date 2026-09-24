@@ -1,0 +1,21 @@
+---
+- name: Configure resource limits for Elasticsearch
+  ansible.builtin.template:
+    src: 90-elasticsearch.conf.j2
+    dest: /etc/security/limits.d/90-elasticsearch.conf
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Ensure PAM limits module is enabled for non-interactive sessions
+  ansible.builtin.lineinfile:
+    path: /etc/pam.d/common-session
+    line: "session required pam_limits.so"
+    create: false
+  register: pam_session
+
+- name: Ensure PAM limits module is enabled for non-interactive noninteractive sessions
+  ansible.builtin.lineinfile:
+    path: /etc/pam.d/common-session-noninteractive
+    line: "session required pam_limits.so"
+    create: false

@@ -1,0 +1,23 @@
+---
+# Limits for ES
+common_nofile_limit: 65535
+common_nproc_limit: 4096
+common_memlock_limit: unlimited
+
+# sysctl
+common_vm_max_map_count: 262144
+common_vm_swappiness: 1
+
+# SSH hardening
+common_ssh_permit_root_login: "no"
+common_ssh_password_authentication: "no"
+common_ssh_allow_users: []
+
+# Firewall
+common_allowed_tcp_ports:
+  - "{{ es_http_port }}"
+  - "{{ es_transport_port }}"
+common_ssh_port: 22
+
+# NTP
+common_ntp_package: chrony

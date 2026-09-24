@@ -1,0 +1,43 @@
+---
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install base packages
+  ansible.builtin.apt:
+    name:
+      - "{{ common_ntp_package }}"
+      - unattended-upgrades
+      - apt-transport-https
+      - gnupg
+      - curl
+      - ufw
+    state: present
+
+- name: Include swap tasks
+  ansible.builtin.include_tasks: swap.yml
+
+- name: Include sysctl tasks
+  ansible.builtin.include_tasks: sysctl.yml
+
+- name: Include limits tasks
+  ansible.builtin.include_tasks: limits.yml
+
+- name: Include SSH hardening tasks
+  ansible.builtin.include_tasks: ssh.yml
+  when: harden_ssh | default(true)
+
+- name: Include firewall tasks
+  ansible.builtin.include_tasks: firewall.yml
+  when: harden_firewall | default(true)
+
+- name: Include automatic security updates tasks
+  ansible.builtin.include_tasks: auto_updates.yml
+  when: harden_auto_updates | default(true)
+
+- name: Ensure chrony (NTP) is running and enabled
+  ansible.builtin.service:
+    name: "{{ common_ntp_package }}"
+    state: started
+    enabled: true

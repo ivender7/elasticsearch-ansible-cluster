@@ -1,0 +1,29 @@
+---
+# ufw host-based firewall
+- name: Allow SSH
+  community.general.ufw:
+    rule: allow
+    port: "{{ common_ssh_port }}"
+    proto: tcp
+
+- name: Allow Elasticsearch ports from trusted network only
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+    src: "{{ es_trusted_network }}"
+  loop: "{{ common_allowed_tcp_ports }}"
+
+- name: Set default deny incoming policy
+  community.general.ufw:
+    default: deny
+    direction: incoming
+
+- name: Set default allow outgoing policy
+  community.general.ufw:
+    default: allow
+    direction: outgoing
+
+- name: Enable ufw
+  community.general.ufw:
+    state: enabled

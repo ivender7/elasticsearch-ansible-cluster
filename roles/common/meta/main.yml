@@ -1,0 +1,4 @@
+---
+galaxy_info:
+  description: Base OS hardening and prerequisites for Elasticsearch nodes
+  min_ansible_version: "2.14"

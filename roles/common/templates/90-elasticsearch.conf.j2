@@ -1,0 +1,7 @@
+# {{ ansible_managed }}
+elasticsearch soft nofile {{ common_nofile_limit }}
+elasticsearch hard nofile {{ common_nofile_limit }}
+elasticsearch soft nproc {{ common_nproc_limit }}
+elasticsearch hard nproc {{ common_nproc_limit }}
+elasticsearch soft memlock {{ common_memlock_limit }}
+elasticsearch hard memlock {{ common_memlock_limit }}
