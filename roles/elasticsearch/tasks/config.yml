@@ -1,0 +1,38 @@
+---
+- name: Deploy elasticsearch.yml
+  ansible.builtin.template:
+    src: elasticsearch.yml.j2
+    dest: "{{ es_conf_dir }}/elasticsearch.yml"
+    owner: "{{ es_user }}"
+    group: "{{ es_group }}"
+    mode: "0640"
+  notify: Restart elasticsearch
+ 
+- name: Deploy JVM heap options
+  ansible.builtin.template:
+    src: heap.options.j2
+    dest: "{{ es_conf_dir }}/jvm.options.d/heap.options"
+    owner: "{{ es_user }}"
+    group: "{{ es_group }}"
+    mode: "0640"
+  notify: Restart elasticsearch
+ 
+- name: Create systemd drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/elasticsearch.service.d
+    state: directory
+    mode: "0755"
+ 
+- name: Deploy systemd memlock/limits override
+  ansible.builtin.template:
+    src: memlock-override.conf.j2
+    dest: /etc/systemd/system/elasticsearch.service.d/override.conf
+    mode: "0644"
+  notify: Restart elasticsearch
+ 
+- name: Ensure Elasticsearch is enabled and started
+  ansible.builtin.systemd:
+    name: elasticsearch
+    enabled: true
+    state: started
+    daemon_reload: true

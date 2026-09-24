@@ -1,0 +1,132 @@
+---
+# Generate the CA and per-node certificates ONCE on the first node
+# (delegate_to + run_once), then distribute them to all nodes via the controller.
+# The CA private key is never copied to worker nodes—it remains only in the controller’s temporary folder
+- name: Remove leftover ES security-autoconfiguration artifacts
+  ansible.builtin.file:
+    path: "{{ es_conf_dir }}/certs/{{ item }}"
+    state: absent
+  loop:
+    - http.p12
+    - http_ca.crt
+    - transport.p12
+
+- name: Create local temp dir for generated certs on controller
+  ansible.builtin.file:
+    path: "{{ es_local_certs_dir }}"
+    state: directory
+    mode: "0700"
+  delegate_to: localhost
+  run_once: true
+  become: false
+ 
+- name: Check if CA already generated (idempotency across runs)
+  ansible.builtin.stat:
+    path: "{{ es_local_certs_dir }}/ca/ca.crt"
+  delegate_to: localhost
+  run_once: true
+  become: false
+  register: ca_exists
+ 
+- name: Generate CA on {{ groups['elasticsearch'][0] }}
+  ansible.builtin.command:
+    cmd: >
+      {{ es_home }}/bin/elasticsearch-certutil ca
+      --pem --silent --out /tmp/es-ca.zip
+      --days {{ es_ca_validity_days }}
+  args:
+    creates: /tmp/es-ca.zip
+  delegate_to: "{{ groups['elasticsearch'][0] }}"
+  run_once: true
+  when: not ca_exists.stat.exists
+
+- name: Ensure unzip is installed
+  apt:
+    name: unzip
+    state: present
+    update_cache: yes
+  become: true
+
+- name: Unarchive CA on the generating node
+  ansible.builtin.unarchive:
+    src: /tmp/es-ca.zip
+    dest: /tmp/
+    remote_src: true
+  delegate_to: "{{ groups['elasticsearch'][0] }}"
+  run_once: true
+  when: not ca_exists.stat.exists
+ 
+- name: Generate per-node certificate on {{ groups['elasticsearch'][0] }}
+  ansible.builtin.command:
+    cmd: >
+      {{ es_home }}/bin/elasticsearch-certutil cert
+      --silent --pem
+      --ca-cert /tmp/ca/ca.crt --ca-key /tmp/ca/ca.key
+      --name {{ item }}
+      --dns {{ item }},localhost
+      --ip {{ hostvars[item].ansible_host }},127.0.0.1
+      --days {{ es_cert_validity_days }}
+      --out /tmp/{{ item }}.zip
+  args:
+    creates: "/tmp/{{ item }}.zip"
+  loop: "{{ groups['elasticsearch'] }}"
+  delegate_to: "{{ groups['elasticsearch'][0] }}"
+  run_once: true
+  when: not ca_exists.stat.exists
+ 
+- name: Fetch CA cert to controller
+  ansible.builtin.fetch:
+    src: /tmp/ca/ca.crt
+    dest: "{{ es_local_certs_dir }}/ca/ca.crt"
+    flat: true
+  delegate_to: "{{ groups['elasticsearch'][0] }}"
+  run_once: true
+  when: not ca_exists.stat.exists
+ 
+- name: Fetch and unarchive per-node cert bundles to controller
+  block:
+    - name: Fetch node cert zip to controller
+      ansible.builtin.fetch:
+        src: "/tmp/{{ item }}.zip"
+        dest: "{{ es_local_certs_dir }}/{{ item }}.zip"
+        flat: true
+      loop: "{{ groups['elasticsearch'] }}"
+      delegate_to: "{{ groups['elasticsearch'][0] }}"
+      run_once: true
+ 
+    - name: Unarchive node cert bundles locally on controller
+      ansible.builtin.unarchive:
+        src: "{{ es_local_certs_dir }}/{{ item }}.zip"
+        dest: "{{ es_local_certs_dir }}/"
+      loop: "{{ groups['elasticsearch'] }}"
+      delegate_to: localhost
+      run_once: true
+      become: false
+  when: not ca_exists.stat.exists
+ 
+- name: Copy CA certificate to every node (needed to verify peers)
+  ansible.builtin.copy:
+    src: "{{ es_local_certs_dir }}/ca/ca.crt"
+    dest: "{{ es_conf_dir }}/certs/ca.crt"
+    owner: "{{ es_user }}"
+    group: "{{ es_group }}"
+    mode: "0644"
+  notify: Restart elasticsearch
+ 
+- name: Copy node's own certificate to itself
+  ansible.builtin.copy:
+    src: "{{ es_local_certs_dir }}/{{ inventory_hostname }}/{{ inventory_hostname }}.crt"
+    dest: "{{ es_conf_dir }}/certs/{{ inventory_hostname }}.crt"
+    owner: "{{ es_user }}"
+    group: "{{ es_group }}"
+    mode: "0644"
+  notify: Restart elasticsearch
+ 
+- name: Copy node's own private key to itself
+  ansible.builtin.copy:
+    src: "{{ es_local_certs_dir }}/{{ inventory_hostname }}/{{ inventory_hostname }}.key"
+    dest: "{{ es_conf_dir }}/certs/{{ inventory_hostname }}.key"
+    owner: "{{ es_user }}"
+    group: "{{ es_group }}"
+    mode: "0640"
+  notify: Restart elasticsearch

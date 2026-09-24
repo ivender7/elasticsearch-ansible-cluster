@@ -1,0 +1,10 @@
+---
+es_user: elasticsearch
+es_group: elasticsearch
+es_home: /usr/share/elasticsearch
+es_conf_dir: /etc/elasticsearch
+es_data_dir: /var/lib/elasticsearch
+es_log_dir: /var/log/elasticsearch
+es_discovery_hosts: "{{ groups['elasticsearch'] | map('extract', hostvars, 'ansible_host') | list }}"
+es_initial_master_nodes: "{{ groups['elasticsearch'] }}"
+es_local_certs_dir: "{{ playbook_dir }}/../.generated-certs"

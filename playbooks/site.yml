@@ -1,0 +1,14 @@
+---
+- name: Prepare and harden hosts
+  hosts: elasticsearch
+  become: true
+  roles:
+    - role: common
+      tags: [common, harden]
+
+- name: Deploy Elasticsearch cluster
+  hosts: elasticsearch
+  become: true
+  roles:
+    - role: elasticsearch
+      tags: [elasticsearch]

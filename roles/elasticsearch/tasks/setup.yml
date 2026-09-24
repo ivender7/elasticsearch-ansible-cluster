@@ -1,0 +1,16 @@
+---
+#  The package already creates the `elasticsearch` system user; here, we’re just
+# ensuring directory permissions for our own control
+- name: Ensure Elasticsearch directories exist with correct ownership
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ es_user }}"
+    group: "{{ es_group }}"
+    mode: "0750"
+  loop:
+    - "{{ es_conf_dir }}"
+    - "{{ es_data_dir }}"
+    - "{{ es_log_dir }}"
+    - "{{ es_conf_dir }}/certs"
+    - "{{ es_conf_dir }}/jvm.options.d"

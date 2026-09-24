@@ -1,0 +1,10 @@
+.vault_pass
+.vagrant/
+*.retry
+certs/
+*.p12
+*.key
+*.crt
+.idea/
+
+.generated-certs/

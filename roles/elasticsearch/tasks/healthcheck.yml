@@ -1,0 +1,27 @@
+---
+- name: Wait for cluster health to be at least yellow
+  ansible.builtin.uri:
+    url: "https://{{ hostvars[groups['elasticsearch'][0]].ansible_host }}:{{ es_http_port }}/_cluster/health"
+    method: GET
+    user: elastic
+    password: "{{ vault_elastic_password }}"
+    force_basic_auth: true
+    ca_path: "{{ es_local_certs_dir }}/ca/ca.crt"
+    status_code: 200
+    return_content: true
+  delegate_to: localhost
+  become: false
+  run_once: true
+  register: health
+  until: health.json.status in ['yellow', 'green']
+  retries: 12
+  delay: 10
+  no_log: true
+ 
+- name: Assert cluster has the expected number of nodes
+  ansible.builtin.assert:
+    that:
+      - health.json.number_of_nodes == (groups['elasticsearch'] | length)
+    fail_msg: "Expected {{ groups['elasticsearch'] | length }} node, cluster sees it {{ health.json.number_of_nodes }}"
+    success_msg: "The cluster has been formed: {{ health.json.number_of_nodes }} node, status {{ health.json.status }}"
+  run_once: true

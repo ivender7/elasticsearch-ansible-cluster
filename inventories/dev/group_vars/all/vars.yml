@@ -1,0 +1,20 @@
+---
+# Cluster
+es_version: "9.5.4"
+es_cluster_name: "es-lab"
+es_network_interface: "eth1"
+es_http_port: 9200
+es_transport_port: 9300
+
+es_heap_size: "512m"
+
+# Network/TLS
+es_trusted_network: "192.168.56.0/24"
+es_certs_dir: "/etc/elasticsearch/certs"
+es_ca_validity_days: 3650
+es_cert_validity_days: 825
+
+# Hardening
+harden_ssh: true
+harden_firewall: true
+harden_auto_updates: true

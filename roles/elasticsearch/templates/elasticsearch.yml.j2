@@ -1,0 +1,32 @@
+# {{ ansible_managed }}
+
+cluster.name: {{ es_cluster_name }}
+node.name: {{ inventory_hostname }}
+
+path.data: {{ es_data_dir }}
+path.logs: {{ es_log_dir }}
+
+network.host: {{ ansible_host }}
+http.port: {{ es_http_port }}
+transport.port: {{ es_transport_port }}
+
+node.roles: {{ es_node_roles | to_json }}
+
+discovery.seed_hosts: {{ es_discovery_hosts | to_json }}
+cluster.initial_master_nodes: {{ es_initial_master_nodes | to_json }}
+
+bootstrap.memory_lock: true
+
+# --- Security (xpack) ---------------------------------------------------
+xpack.security.enabled: true
+
+xpack.security.transport.ssl.enabled: true
+xpack.security.transport.ssl.verification_mode: full
+xpack.security.transport.ssl.certificate: certs/{{ inventory_hostname }}.crt
+xpack.security.transport.ssl.key: certs/{{ inventory_hostname }}.key
+xpack.security.transport.ssl.certificate_authorities: [ certs/ca.crt ]
+
+xpack.security.http.ssl.enabled: true
+xpack.security.http.ssl.certificate: certs/{{ inventory_hostname }}.crt
+xpack.security.http.ssl.key: certs/{{ inventory_hostname }}.key
+xpack.security.http.ssl.certificate_authorities: [ certs/ca.crt ]

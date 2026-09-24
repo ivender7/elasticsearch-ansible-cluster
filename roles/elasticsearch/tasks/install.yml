@@ -1,0 +1,43 @@
+---
+# Pinning a specific version (es_version from group_vars)
+- name: Ensure /etc/apt/keyrings directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+    owner: root
+    group: root
+
+- name: Download Elastic GPG key (armored) directly into keyrings dir
+  ansible.builtin.get_url:
+    url: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+    dest: /etc/apt/keyrings/elasticsearch-armored.asc
+    mode: "0644"
+    owner: root
+    group: root
+  register: es_gpg_key_download
+
+- name: Dearmor into binary keyring (only when the armored key actually changed or missing)
+  ansible.builtin.command:
+    cmd: >-
+      gpg --batch --yes --dearmor
+      -o /etc/apt/keyrings/elasticsearch.gpg
+      /etc/apt/keyrings/elasticsearch-armored.asc
+  when: es_gpg_key_download.changed
+  changed_when: true
+
+- name: Add Elastic APT repository (key scoped via signed-by, not system-wide)
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb [signed-by=/etc/apt/keyrings/elasticsearch.gpg]
+      https://artifacts.elastic.co/packages/{{ es_version.split('.')[0] }}.x/apt stable main
+    state: present
+    filename: elastic-elasticsearch
+
+- name: Install Elasticsearch package (pinned version)
+  ansible.builtin.apt:
+    name: "elasticsearch={{ es_version }}"
+    state: present
+    update_cache: true
+    allow_downgrade: false
+  notify: Restart elasticsearch

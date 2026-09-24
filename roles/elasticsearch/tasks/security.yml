@@ -1,0 +1,59 @@
+---
+# Idempotent Elastic password setup:
+#   1. Try to authenticate using an existing (vault) password.
+#   2. If that fails (first run), we generate a temporary password
+#      using `elasticsearch-reset-password` and immediately change it to
+#      our own password from `ansible-vault`. On subsequent runs, this block is completely
+#      skipped (`changed=0`).
+- name: Wait for Elasticsearch HTTPS API to accept connections
+  ansible.builtin.wait_for:
+    host: "{{ ansible_host }}"
+    port: "{{ es_http_port }}"
+    delay: 5
+    timeout: 120
+  run_once: true
+  delegate_to: "{{ groups['elasticsearch'][0] }}"
+ 
+- name: Check whether the vault-defined elastic password already works
+  ansible.builtin.uri:
+    url: "https://{{ hostvars[groups['elasticsearch'][0]].ansible_host }}:{{ es_http_port }}/_cluster/health"
+    method: GET
+    user: elastic
+    password: "{{ vault_elastic_password }}"
+    force_basic_auth: true
+    ca_path: "{{ es_local_certs_dir }}/ca/ca.crt"
+    status_code: 200
+  delegate_to: localhost
+  become: false
+  run_once: true
+  register: elastic_auth_check
+  failed_when: false
+  no_log: true
+ 
+- name: Set elastic user password (first run only)
+  when: elastic_auth_check.status | default(0) != 200
+  run_once: true
+  block:
+    - name: Reset elastic password to a temporary random value
+      ansible.builtin.command:
+        cmd: "{{ es_home }}/bin/elasticsearch-reset-password -u elastic -s -b"
+      delegate_to: "{{ groups['elasticsearch'][0] }}"
+      register: temp_password_result
+      no_log: true
+      changed_when: true
+ 
+    - name: Change elastic password to the vault-defined value
+      ansible.builtin.uri:
+        url: "https://{{ hostvars[groups['elasticsearch'][0]].ansible_host }}:{{ es_http_port }}/_security/user/elastic/_password"
+        method: POST
+        user: elastic
+        password: "{{ temp_password_result.stdout | trim }}"
+        force_basic_auth: true
+        body_format: json
+        body:
+          password: "{{ vault_elastic_password }}"
+        ca_path: "{{ es_local_certs_dir }}/ca/ca.crt"
+        status_code: 200
+      delegate_to: localhost
+      become: false
+      no_log: true
